@@ -29,18 +29,54 @@
         
         /* Glassmorphism Card */
         .glass-panel {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Node Labels */
+        .node-label {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            color: white;
+            text-align: center;
+            pointer-events: none;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+            transition: opacity 0.3s, transform 0.3s;
+            width: 160px;
+            z-index: 5;
+        }
+        .node-label h3 { 
+            font-size: 13px; 
+            font-weight: 700; 
+            color: #ffffff; 
+            margin: 0; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            background: rgba(0,0,0,0.4);
+            padding: 2px 8px;
+            border-radius: 12px;
+            display: inline-block;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .node-label p { 
+            font-size: 11px; 
+            color: #bae6fd; 
+            margin-top: 4px; 
+            font-weight: 500;
+            background: rgba(0,0,0,0.6);
+            padding: 2px 6px;
+            border-radius: 4px;
+            display: inline-block;
         }
 
         /* Loading Screen */
         #loader {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 50; display: flex; justify-content: center; align-items: center;
-            color: #0ea5e9; font-size: 1.5rem; letter-spacing: 2px;
+            background: #020617; z-index: 50; display: flex; justify-content: center; align-items: center;
+            color: #38bdf8; font-size: 1.5rem; letter-spacing: 2px;
             transition: opacity 1s ease;
         }
 
@@ -50,14 +86,7 @@
         .custom-scroll::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.5); border-radius: 3px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(14, 165, 233, 0.8); }
 
-        /* Animations */
-        @keyframes pulse-ring {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(14, 165, 233, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
-        }
-        
-        .nav-btn:hover { text-shadow: 0 0 10px #0ea5e9; transform: scale(1.1); }
+        .hidden-label { opacity: 0 !important; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -79,19 +108,18 @@
             </div>
             
             <!-- Close Detail View Button (Hidden initially) -->
-            <button id="close-btn" class="interactive hidden bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/50 rounded-full w-12 h-12 flex items-center justify-center transition-all duration-300">
+            <button id="close-btn" class="interactive hidden bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/50 rounded-full w-12 h-12 flex items-center justify-center transition-all duration-300 shadow-[0_0_15px_rgba(239,68,68,0.5)]">
                 <i class="fa-solid fa-xmark text-xl"></i>
             </button>
         </div>
 
         <!-- Instructions (Hidden when detailed view is open) -->
-        <div id="instructions" class="absolute bottom-10 left-1/2 transform -translate-x-1/2 text-center text-slate-500 text-sm animate-pulse select-none">
-            <p>CLICK A NODE TO EXPLORE</p>
-            <p class="text-xs opacity-50">DRAG TO ROTATE | SCROLL TO ZOOM</p>
+        <div id="instructions" class="absolute bottom-10 left-1/2 transform -translate-x-1/2 text-center text-slate-500 text-sm animate-pulse select-none bg-black/50 px-4 py-2 rounded-full border border-white/5 backdrop-blur-sm">
+            <p>CLICK NODES TO EXPLORE</p>
         </div>
 
         <!-- Content Panel (Hidden initially) -->
-        <div id="content-panel" class="interactive hidden absolute top-1/2 right-4 md:right-10 transform -translate-y-1/2 w-[90%] md:w-[450px] max-h-[80vh] glass-panel rounded-xl text-white p-6 overflow-hidden flex flex-col transition-all duration-500 opacity-0 translate-x-10">
+        <div id="content-panel" class="interactive hidden absolute top-1/2 right-4 md:right-10 transform -translate-y-1/2 w-[90%] md:w-[450px] max-h-[85vh] glass-panel rounded-xl text-white p-6 overflow-hidden flex flex-col transition-all duration-500 opacity-0 translate-x-10">
             <h2 id="panel-title" class="text-2xl font-bold text-sky-400 mb-4 border-b border-white/10 pb-2"></h2>
             <div id="panel-body" class="overflow-y-auto custom-scroll pr-2 space-y-4 text-sm text-slate-300 leading-relaxed">
                 <!-- Content injected via JS -->
@@ -99,6 +127,9 @@
         </div>
 
     </div>
+
+    <!-- Labels Container (Injected via JS but styled here) -->
+    <div id="labels-container"></div>
 
     <script>
         // --- RESUME DATA ---
@@ -108,12 +139,12 @@
                 content: `
                     <p class="mb-4">Dynamic Computer Science graduate (2024) eager to kickstart a career in the tech industry. Seeking an entry-level position where I can apply my coding skills, problem-solving abilities, and passion for innovation.</p>
                     <div class="grid grid-cols-2 gap-4 mt-4">
-                        <div class="bg-white/5 p-3 rounded">
+                        <div class="bg-white/5 p-3 rounded border border-white/5">
                             <i class="fa-solid fa-location-dot text-sky-400 mb-2"></i>
                             <div class="text-xs text-slate-400">Location</div>
                             <div>Bhalki, Karnataka</div>
                         </div>
-                        <div class="bg-white/5 p-3 rounded">
+                        <div class="bg-white/5 p-3 rounded border border-white/5">
                             <i class="fa-solid fa-graduation-cap text-sky-400 mb-2"></i>
                             <div class="text-xs text-slate-400">Education</div>
                             <div>B.E. (CSE)</div>
@@ -126,26 +157,26 @@
                 content: `
                     <div class="space-y-6">
                         <div class="relative pl-6 border-l-2 border-sky-500/30">
-                            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-sky-500"></div>
-                            <h3 class="text-white font-bold">Bachelor of Engineering (CSE)</h3>
-                            <p class="text-sky-300 text-xs">2020 - 2024</p>
-                            <p class="text-slate-400 text-sm mt-1">Bheemanna Khandre Institute of Technology, Bhalki</p>
-                            <div class="inline-block mt-2 px-2 py-1 bg-sky-500/20 rounded text-sky-300 text-xs font-bold">CGPA: 8.45</div>
+                            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-sky-500 shadow-[0_0_10px_#0ea5e9]"></div>
+                            <h3 class="text-white font-bold text-base">Bachelor of Engineering (CSE)</h3>
+                            <p class="text-sky-300 text-xs font-mono mb-1">2020 - 2024</p>
+                            <p class="text-slate-400 text-sm">Bheemanna Khandre Institute of Technology, Bhalki</p>
+                            <div class="inline-block mt-2 px-2 py-1 bg-sky-500/10 border border-sky-500/20 rounded text-sky-300 text-xs font-bold">CGPA: 8.45</div>
                         </div>
                         
                         <div class="relative pl-6 border-l-2 border-sky-500/30">
                             <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-700"></div>
-                            <h3 class="text-white font-bold">Pre-University Course (Science)</h3>
-                            <p class="text-sky-300 text-xs">2018 - 2020</p>
-                            <p class="text-slate-400 text-sm mt-1">Diamond PU Science College, Bhalki</p>
-                            <div class="inline-block mt-2 px-2 py-1 bg-white/10 rounded text-slate-300 text-xs">88%</div>
+                            <h3 class="text-white font-bold text-base">Pre-University (Science)</h3>
+                            <p class="text-sky-300 text-xs font-mono mb-1">2018 - 2020</p>
+                            <p class="text-slate-400 text-sm">Diamond PU Science College, Bhalki</p>
+                            <div class="inline-block mt-2 px-2 py-1 bg-white/5 border border-white/10 rounded text-slate-300 text-xs">88%</div>
                         </div>
 
                         <div class="relative pl-6 border-l-2 border-sky-500/30">
                             <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-700"></div>
-                            <h3 class="text-white font-bold">SSLC</h3>
-                            <p class="text-slate-400 text-sm mt-1">Sri Kumar Swamiji High School, Bhalki</p>
-                            <div class="inline-block mt-2 px-2 py-1 bg-white/10 rounded text-slate-300 text-xs">76.64%</div>
+                            <h3 class="text-white font-bold text-base">SSLC</h3>
+                            <p class="text-slate-400 text-sm">Sri Kumar Swamiji High School, Bhalki</p>
+                            <div class="inline-block mt-2 px-2 py-1 bg-white/5 border border-white/10 rounded text-slate-300 text-xs">76.64%</div>
                         </div>
                     </div>
                 `
@@ -153,45 +184,51 @@
             "skills": {
                 title: "Technical & Soft Skills",
                 content: `
-                    <h4 class="text-sky-400 font-bold mb-2 uppercase text-xs tracking-wider">Programming & Web</h4>
+                    <h4 class="text-sky-400 font-bold mb-3 uppercase text-xs tracking-wider border-b border-sky-500/20 pb-1">Programming Core</h4>
                     <div class="flex flex-wrap gap-2 mb-6">
-                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">Java (OOP, Multithreading)</span>
-                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">SQL (Joins, Subqueries)</span>
-                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">HTML5 / CSS3</span>
-                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">JavaScript</span>
-                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">Bootstrap</span>
-                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">Linux</span>
-                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">Git</span>
+                        <span class="px-3 py-1 bg-blue-600/20 border border-blue-500/30 rounded-full text-xs text-blue-200">Java (OOP)</span>
+                        <span class="px-3 py-1 bg-blue-600/20 border border-blue-500/30 rounded-full text-xs text-blue-200">Java 8</span>
+                        <span class="px-3 py-1 bg-blue-600/20 border border-blue-500/30 rounded-full text-xs text-blue-200">Multithreading</span>
+                        <span class="px-3 py-1 bg-blue-600/20 border border-blue-500/30 rounded-full text-xs text-blue-200">Exception Handling</span>
                     </div>
 
-                    <h4 class="text-purple-400 font-bold mb-2 uppercase text-xs tracking-wider">Soft Skills</h4>
+                    <h4 class="text-emerald-400 font-bold mb-3 uppercase text-xs tracking-wider border-b border-emerald-500/20 pb-1">Web & Database</h4>
                     <div class="flex flex-wrap gap-2 mb-6">
-                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-300">Adaptability</span>
-                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-300">Leadership</span>
-                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-300">Communication</span>
-                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-300">Teamwork</span>
+                        <span class="px-3 py-1 bg-emerald-600/20 border border-emerald-500/30 rounded-full text-xs text-emerald-200">SQL (Joins/Subqueries)</span>
+                        <span class="px-3 py-1 bg-emerald-600/20 border border-emerald-500/30 rounded-full text-xs text-emerald-200">HTML5 / CSS3</span>
+                        <span class="px-3 py-1 bg-emerald-600/20 border border-emerald-500/30 rounded-full text-xs text-emerald-200">JavaScript</span>
+                        <span class="px-3 py-1 bg-emerald-600/20 border border-emerald-500/30 rounded-full text-xs text-emerald-200">Bootstrap</span>
                     </div>
-                    
-                    <h4 class="text-green-400 font-bold mb-2 uppercase text-xs tracking-wider">Certifications</h4>
-                    <ul class="list-disc list-inside text-xs text-slate-300">
-                        <li>Java Full Stack Development - JSpiders, Bangalore</li>
-                    </ul>
+
+                    <h4 class="text-purple-400 font-bold mb-3 uppercase text-xs tracking-wider border-b border-purple-500/20 pb-1">Soft Skills</h4>
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-200">Adaptability</span>
+                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-200">Leadership</span>
+                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-200">Communication</span>
+                    </div>
                 `
             },
             "experience": {
-                title: "Work Experience",
+                title: "Experience & Certifications",
                 content: `
-                    <div class="bg-white/5 p-4 rounded-lg border border-white/10">
-                        <div class="flex justify-between items-start mb-2">
+                    <div class="bg-gradient-to-br from-white/5 to-white/10 p-5 rounded-lg border border-white/10 mb-6 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-20 h-20 bg-sky-500/10 rounded-full blur-xl -mr-10 -mt-10"></div>
+                        <div class="flex justify-between items-start mb-2 relative z-10">
                             <h3 class="font-bold text-lg text-white">Data Science Intern</h3>
-                            <span class="text-xs text-slate-400 bg-white/10 px-2 py-1 rounded">Aug - Sept 2023</span>
+                            <span class="text-xs text-sky-200 bg-sky-500/20 border border-sky-500/30 px-2 py-1 rounded">Aug - Sept 2023</span>
                         </div>
-                        <p class="text-sky-400 text-sm mb-3">ZE Learning Lab, Bangalore</p>
-                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-2">
-                            <li>Worked in the Data Science domain.</li>
-                            <li>Developed a <strong>Laptop Price Prediction</strong> model using Jupyter Notebook.</li>
-                            <li>Gained hands-on experience with Python libraries for data analysis.</li>
+                        <p class="text-sky-400 text-sm mb-3 font-medium">ZE Learning Lab, Bangalore</p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-2 relative z-10">
+                            <li>Worked in Data Science domain using Jupyter Notebook.</li>
+                            <li>Developed a <strong>Laptop Price Prediction</strong> model.</li>
+                            <li>Applied Python libraries for data analysis and visualization.</li>
                         </ul>
+                    </div>
+
+                    <h4 class="text-white font-bold mb-3 uppercase text-xs tracking-wider">Certifications</h4>
+                    <div class="p-3 bg-white/5 border-l-4 border-green-500 rounded-r">
+                        <p class="text-sm text-white font-bold">Java Full Stack Development</p>
+                        <p class="text-xs text-slate-400 mt-1">JSpiders, Bangalore</p>
                     </div>
                 `
             },
@@ -199,32 +236,28 @@
                 title: "Project Portfolio",
                 content: `
                     <div class="space-y-6">
-                        <div class="group">
-                            <h3 class="text-sky-300 font-bold flex items-center gap-2">
-                                <i class="fa-solid fa-utensils"></i> Food Recognition & Calorie Estimation
+                        <div class="group bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                            <h3 class="text-sky-300 font-bold flex items-center gap-2 mb-1">
+                                <i class="fa-solid fa-utensils text-sky-500"></i> Food Recognition AI
                             </h3>
-                            <p class="text-xs text-slate-500 mb-2">Main Project (Machine Learning)</p>
-                            <p class="text-sm text-slate-300">Developed a web-app that recognizes food items from images and estimates their calorie content using ML algorithms.</p>
+                            <span class="text-[10px] uppercase tracking-wider text-slate-500 border border-slate-700 px-2 py-0.5 rounded-full">Main Project</span>
+                            <p class="text-sm text-slate-300 mt-2">Web-app that uses <strong>Machine Learning</strong> to recognize food items from images and automatically estimate calorie content.</p>
                         </div>
 
-                        <div class="w-full h-px bg-white/10"></div>
-
-                        <div class="group">
-                            <h3 class="text-sky-300 font-bold flex items-center gap-2">
-                                <i class="fa-solid fa-shop"></i> Restaurant Management System
+                        <div class="group bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                            <h3 class="text-sky-300 font-bold flex items-center gap-2 mb-1">
+                                <i class="fa-solid fa-shop text-orange-500"></i> Restaurant Management
                             </h3>
-                            <p class="text-xs text-slate-500 mb-2">Mini Project (Java & PHP)</p>
-                            <p class="text-sm text-slate-300">Designed and developed both front-end and back-end for a management system to handle restaurant operations.</p>
+                            <span class="text-[10px] uppercase tracking-wider text-slate-500 border border-slate-700 px-2 py-0.5 rounded-full">Mini Project</span>
+                            <p class="text-sm text-slate-300 mt-2">Full-stack application built with <strong>Java & PHP</strong>. Handles order processing, inventory, and billing for restaurant operations.</p>
                         </div>
 
-                        <div class="w-full h-px bg-white/10"></div>
-
-                        <div class="group">
-                            <h3 class="text-sky-300 font-bold flex items-center gap-2">
-                                <i class="fa-solid fa-water"></i> 3D Water Fountain
+                        <div class="group bg-white/5 p-4 rounded-xl border border-white/5 hover:bg-white/10 transition-colors">
+                            <h3 class="text-sky-300 font-bold flex items-center gap-2 mb-1">
+                                <i class="fa-solid fa-water text-blue-500"></i> 3D Water Fountain
                             </h3>
-                            <p class="text-xs text-slate-500 mb-2">Computer Graphics (Code Blocks)</p>
-                            <p class="text-sm text-slate-300">Created a 3D simulation of a water fountain using computer graphics principles.</p>
+                            <span class="text-[10px] uppercase tracking-wider text-slate-500 border border-slate-700 px-2 py-0.5 rounded-full">Computer Graphics</span>
+                            <p class="text-sm text-slate-300 mt-2">Simulation developed using <strong>Code Blocks</strong> demonstrating computer graphics principles and physics simulation.</p>
                         </div>
                     </div>
                 `
@@ -233,43 +266,43 @@
                 title: "Contact & Languages",
                 content: `
                     <div class="space-y-4">
-                        <a href="mailto:kumbarkavyashree@gmail.com" class="flex items-center gap-4 p-3 bg-white/5 hover:bg-white/10 rounded transition-colors group">
+                        <a href="mailto:kumbarkavyashree@gmail.com" class="flex items-center gap-4 p-3 bg-white/5 hover:bg-sky-500/10 border border-transparent hover:border-sky-500/30 rounded transition-all group">
                             <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 group-hover:scale-110 transition-transform">
                                 <i class="fa-solid fa-envelope"></i>
                             </div>
                             <div>
                                 <div class="text-xs text-slate-400">Email</div>
-                                <div class="text-sm text-white">kumbarkavyashree@gmail.com</div>
+                                <div class="text-sm text-white group-hover:text-sky-300">kumbarkavyashree@gmail.com</div>
                             </div>
                         </a>
 
-                        <a href="tel:+917019044357" class="flex items-center gap-4 p-3 bg-white/5 hover:bg-white/10 rounded transition-colors group">
+                        <a href="tel:+917019044357" class="flex items-center gap-4 p-3 bg-white/5 hover:bg-green-500/10 border border-transparent hover:border-green-500/30 rounded transition-all group">
                             <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 group-hover:scale-110 transition-transform">
                                 <i class="fa-solid fa-phone"></i>
                             </div>
                             <div>
                                 <div class="text-xs text-slate-400">Phone</div>
-                                <div class="text-sm text-white">+91 7019044357</div>
+                                <div class="text-sm text-white group-hover:text-green-300">+91 7019044357</div>
                             </div>
                         </a>
 
-                        <a href="https://www.linkedin.com/in/kavya-shree-s-k-045351230/" target="_blank" class="flex items-center gap-4 p-3 bg-white/5 hover:bg-white/10 rounded transition-colors group">
+                        <a href="https://www.linkedin.com/in/kavya-shree-s-k-045351230/" target="_blank" class="flex items-center gap-4 p-3 bg-white/5 hover:bg-blue-500/10 border border-transparent hover:border-blue-500/30 rounded transition-all group">
                             <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
                                 <i class="fa-brands fa-linkedin-in"></i>
                             </div>
                             <div>
                                 <div class="text-xs text-slate-400">LinkedIn</div>
-                                <div class="text-sm text-white">View Profile</div>
+                                <div class="text-sm text-white group-hover:text-blue-300">View Profile</div>
                             </div>
                         </a>
 
                         <div class="mt-6 pt-4 border-t border-white/10">
-                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Languages</h4>
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Languages Spoken</h4>
                             <div class="grid grid-cols-2 gap-2">
-                                <div class="text-sm text-slate-300"><i class="fa-solid fa-check text-green-500 mr-2"></i>English</div>
-                                <div class="text-sm text-slate-300"><i class="fa-solid fa-check text-green-500 mr-2"></i>Kannada</div>
-                                <div class="text-sm text-slate-300"><i class="fa-solid fa-check text-green-500 mr-2"></i>Hindi</div>
-                                <div class="text-sm text-slate-300"><i class="fa-solid fa-check text-green-500 mr-2"></i>Marathi</div>
+                                <div class="text-sm text-slate-300"><i class="fa-solid fa-circle-check text-green-500/80 mr-2 text-xs"></i>English</div>
+                                <div class="text-sm text-slate-300"><i class="fa-solid fa-circle-check text-green-500/80 mr-2 text-xs"></i>Kannada</div>
+                                <div class="text-sm text-slate-300"><i class="fa-solid fa-circle-check text-green-500/80 mr-2 text-xs"></i>Hindi</div>
+                                <div class="text-sm text-slate-300"><i class="fa-solid fa-circle-check text-green-500/80 mr-2 text-xs"></i>Marathi</div>
                             </div>
                         </div>
                     </div>
@@ -290,10 +323,10 @@
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
         // --- LIGHTING ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         scene.add(ambientLight);
 
-        const pointLight = new THREE.PointLight(0x0ea5e9, 2, 50);
+        const pointLight = new THREE.PointLight(0x38bdf8, 2, 50);
         pointLight.position.set(0, 10, 0);
         scene.add(pointLight);
 
@@ -319,23 +352,26 @@
         // --- NODES SETUP ---
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
-        const interactables = []; // Objects that can be clicked
+        const interactables = []; 
         const nodesGroup = new THREE.Group();
+        const labels = []; // Store label elements
         scene.add(nodesGroup);
 
-        // Define Nodes structure
+        // Define Nodes structure with specific preview content
         const nodesConfig = [
-            { id: 'profile', label: 'About Me', color: 0x0ea5e9, size: 2, pos: { x: 0, y: 0, z: 0 }, icon: 'user' },
-            { id: 'education', label: 'Education', color: 0xf59e0b, size: 1.2, pos: { x: -6, y: 2, z: 0 }, icon: 'graduation-cap' },
-            { id: 'skills', label: 'Skills', color: 0xa855f7, size: 1.2, pos: { x: 6, y: 2, z: 0 }, icon: 'code' },
-            { id: 'experience', label: 'Work Exp', color: 0x10b981, size: 1.2, pos: { x: -4, y: -4, z: 2 }, icon: 'briefcase' },
-            { id: 'projects', label: 'Projects', color: 0xf43f5e, size: 1.2, pos: { x: 4, y: -4, z: 2 }, icon: 'rocket' },
-            { id: 'contact', label: 'Contact', color: 0xffffff, size: 1, pos: { x: 0, y: 5, z: -2 }, icon: 'envelope' }
+            { id: 'profile', label: 'About Me', preview: 'Career Objective', color: 0x0ea5e9, size: 2, pos: { x: 0, y: 0, z: 0 } },
+            { id: 'education', label: 'Education', preview: 'B.E., PUC, SSLC', color: 0xf59e0b, size: 1.2, pos: { x: -6, y: 2, z: 0 } },
+            { id: 'skills', label: 'Skills', preview: 'Java, SQL, Web', color: 0xa855f7, size: 1.2, pos: { x: 6, y: 2, z: 0 } },
+            { id: 'experience', label: 'Work Exp', preview: 'Internship & Training', color: 0x10b981, size: 1.2, pos: { x: -4, y: -4, z: 2 } },
+            { id: 'projects', label: 'Projects', preview: 'ML & Web Apps', color: 0xf43f5e, size: 1.2, pos: { x: 4, y: -4, z: 2 } },
+            { id: 'contact', label: 'Contact', preview: 'Email, Phone, Links', color: 0xffffff, size: 1, pos: { x: 0, y: 5, z: -2 } }
         ];
 
-        // Create Nodes
+        // Create Nodes & Labels
+        const labelsContainer = document.getElementById('labels-container');
+
         nodesConfig.forEach(node => {
-            // Geometry
+            // 1. 3D Mesh
             let geometry;
             if(node.id === 'profile') {
                 geometry = new THREE.IcosahedronGeometry(node.size, 1);
@@ -343,11 +379,10 @@
                 geometry = new THREE.SphereGeometry(node.size, 32, 32);
             }
 
-            // Material
             const material = new THREE.MeshPhongMaterial({
                 color: node.color,
                 emissive: node.color,
-                emissiveIntensity: 0.4,
+                emissiveIntensity: 0.3,
                 shininess: 100,
                 flatShading: node.id === 'profile'
             });
@@ -356,153 +391,175 @@
             mesh.position.set(node.pos.x, node.pos.y, node.pos.z);
             mesh.userData = { id: node.id, originalPos: node.pos, originalColor: node.color };
             
-            // Add visible ring/orbit for style
+            // Rings
             const ringGeo = new THREE.RingGeometry(node.size + 0.2, node.size + 0.3, 32);
-            const ringMat = new THREE.MeshBasicMaterial({ color: node.color, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
+            const ringMat = new THREE.MeshBasicMaterial({ color: node.color, side: THREE.DoubleSide, transparent: true, opacity: 0.2 });
             const ring = new THREE.Mesh(ringGeo, ringMat);
-            ring.rotation.x = Math.PI / 2; // Lie flat initially
+            ring.rotation.x = Math.PI / 2;
             mesh.add(ring);
             
-            // Random floating animation data
+            // Float data
             mesh.userData.floatOffset = Math.random() * 100;
             mesh.userData.floatSpeed = 0.01 + Math.random() * 0.02;
 
             nodesGroup.add(mesh);
             interactables.push(mesh);
 
-            // Connect lines to center (except center itself)
+            // Connect lines
             if(node.id !== 'profile') {
-                const points = [];
-                points.push(new THREE.Vector3(0, 0, 0)); // Center
-                points.push(new THREE.Vector3(node.pos.x, node.pos.y, node.pos.z));
+                const points = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(node.pos.x, node.pos.y, node.pos.z)];
                 const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
-                const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 });
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.05 });
                 const line = new THREE.Line(lineGeo, lineMat);
                 nodesGroup.add(line);
             }
+
+            // 2. HTML Label
+            const labelDiv = document.createElement('div');
+            labelDiv.className = 'node-label';
+            labelDiv.innerHTML = `<h3>${node.label}</h3><br><p>${node.preview}</p>`;
+            labelsContainer.appendChild(labelDiv);
+            
+            // Link label to mesh for tracking
+            labels.push({ element: labelDiv, mesh: mesh });
         });
 
         // --- ANIMATION LOOP ---
         let isFocused = false;
-        let focusedNodePosition = new THREE.Vector3();
-
+        
         function animate() {
             requestAnimationFrame(animate);
             TWEEN.update();
 
-            // Starfield rotation
+            // Starfield
             starField.rotation.y += 0.0005;
 
-            // Float nodes
+            // Float Nodes
             nodesGroup.children.forEach(child => {
                 if (child.isMesh && child.userData.floatSpeed) {
                     child.position.y = child.userData.originalPos.y + Math.sin(Date.now() * 0.001 + child.userData.floatOffset) * 0.5;
                     child.rotation.y += 0.005;
-                    child.rotation.z += 0.002;
-                    
-                    // Rotate rings nicely
+                    // Ring
                     if(child.children.length > 0) {
                         child.children[0].rotation.x = Math.PI/2 + Math.sin(Date.now() * 0.002) * 0.5;
-                        child.children[0].rotation.y = Math.cos(Date.now() * 0.002) * 0.5;
                     }
                 }
             });
 
-            // Idle camera movement
+            // Camera movement if idle
             if(!isFocused) {
                 camera.position.x += (mouse.x * 2 - camera.position.x) * 0.05;
                 camera.position.y += (mouse.y * 2 + 5 - camera.position.y) * 0.05;
                 camera.lookAt(0, 0, 0);
-            } else {
-                // Keep looking at target
-                // camera.lookAt(focusedNodePosition); // This creates jitter with Tween, better to handle in Tween onUpdate
             }
 
+            // Update Labels Positions
+            updateLabels();
+
             renderer.render(scene, camera);
+        }
+
+        function updateLabels() {
+            labels.forEach(item => {
+                // If focused on a specific node, hide others to clean up view
+                if(isFocused && item.mesh.userData.id !== currentDetailId) {
+                    item.element.classList.add('hidden-label');
+                    return;
+                } else if (isFocused && item.mesh.userData.id === currentDetailId) {
+                     // Even the focused one can be hidden as the panel opens
+                     item.element.classList.add('hidden-label');
+                     return;
+                } else {
+                    item.element.classList.remove('hidden-label');
+                }
+
+                const vector = item.mesh.position.clone();
+                // Add y offset to float label above mesh
+                vector.y += (item.mesh.geometry.parameters.radius || item.mesh.geometry.parameters.radius) * 1.5 + 1; 
+
+                vector.project(camera);
+
+                // Check if object is behind camera
+                if(vector.z > 1) {
+                    item.element.classList.add('hidden-label');
+                } else {
+                    const x = (vector.x * .5 + .5) * window.innerWidth;
+                    const y = (-(vector.y * .5) + .5) * window.innerHeight;
+
+                    item.element.style.left = `${x}px`;
+                    item.element.style.top = `${y}px`;
+                }
+            });
         }
 
         animate();
 
         // --- EVENTS ---
-        
-        // Remove Loader
         window.addEventListener('load', () => {
             const loader = document.getElementById('loader');
             loader.style.opacity = '0';
             setTimeout(() => loader.remove(), 1000);
         });
 
-        // Mouse Move for Parallax
         document.addEventListener('mousemove', (event) => {
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         });
 
-        // Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Click Interaction
         document.addEventListener('click', onMouseClick);
 
         function onMouseClick(event) {
-            if(event.target.closest('.interactive')) return; // Ignore UI clicks
+            if(event.target.closest('.interactive')) return;
 
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(interactables);
 
             if (intersects.length > 0) {
-                const object = intersects[0].object;
-                focusNode(object);
-            } else {
-                // Clicking background doesn't reset automatically to avoid accidental closing
+                focusNode(intersects[0].object);
             }
         }
 
         // --- UI LOGIC ---
+        let currentDetailId = null;
 
         function focusNode(object) {
             if(isFocused && object.userData.id === currentDetailId) return;
             
             isFocused = true;
             currentDetailId = object.userData.id;
-            focusedNodePosition.copy(object.position);
 
             // Hide instructions
             document.getElementById('instructions').classList.add('opacity-0');
 
-            // 1. Move Camera
-            // Calculate a position slightly in front of the object
-            const offset = new THREE.Vector3(0, 0, 8); // Distance from object
-            // If object is on the side, adjust angle
+            // Move Camera
+            const offset = new THREE.Vector3(0, 0, 8);
+            if(object.userData.id === 'education') offset.set(5, 0, 8); // Side view
+            if(object.userData.id === 'skills') offset.set(-5, 0, 8); // Side view
+
             const targetPos = object.position.clone().add(offset);
             
-            // Adjust specific camera angles based on node ID for better composition
-            if(object.userData.id === 'education') targetPos.set(object.position.x + 5, object.position.y, object.position.z + 8);
-            if(object.userData.id === 'skills') targetPos.set(object.position.x - 5, object.position.y, object.position.z + 8);
-
             new TWEEN.Tween(camera.position)
-                .to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, 1500)
+                .to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, 1200)
                 .easing(TWEEN.Easing.Cubic.Out)
-                .onUpdate(() => {
-                    camera.lookAt(object.position);
-                })
+                .onUpdate(() => camera.lookAt(object.position))
                 .start();
 
-            // 2. Open UI Panel
             openDetailPanel(object.userData.id);
             
-            // 3. Highlight Node (Dim others)
+            // Highlight
             interactables.forEach(mesh => {
                 if(mesh === object) {
-                    mesh.material.emissiveIntensity = 1;
-                    mesh.scale.setScalar(1.2);
+                    mesh.material.emissiveIntensity = 0.8;
+                    new TWEEN.Tween(mesh.scale).to({x: 1.1, y: 1.1, z: 1.1}, 500).start();
                 } else {
                     mesh.material.emissiveIntensity = 0.1;
-                    mesh.scale.setScalar(1);
+                    new TWEEN.Tween(mesh.scale).to({x: 1, y: 1, z: 1}, 500).start();
                 }
             });
         }
@@ -511,13 +568,10 @@
             isFocused = false;
             currentDetailId = null;
 
-            // Reset Camera
             new TWEEN.Tween(camera.position)
                 .to({ x: 0, y: 5, z: 20 }, 1500)
                 .easing(TWEEN.Easing.Cubic.Out)
-                .onUpdate(() => {
-                    camera.lookAt(0, 0, 0);
-                })
+                .onUpdate(() => camera.lookAt(0, 0, 0))
                 .start();
 
             // Hide Panel
@@ -526,47 +580,29 @@
             panel.classList.add('opacity-0', 'translate-x-10');
             setTimeout(() => panel.classList.add('hidden'), 500);
 
-            // Hide Close Button
-            const closeBtn = document.getElementById('close-btn');
-            closeBtn.classList.add('hidden');
-
-            // Show instructions
+            document.getElementById('close-btn').classList.add('hidden');
             document.getElementById('instructions').classList.remove('opacity-0');
 
-            // Reset Nodes
             interactables.forEach(mesh => {
-                mesh.material.emissiveIntensity = 0.4;
-                new TWEEN.Tween(mesh.scale)
-                    .to({ x: 1, y: 1, z: 1 }, 500)
-                    .start();
+                mesh.material.emissiveIntensity = 0.3;
+                new TWEEN.Tween(mesh.scale).to({x: 1, y: 1, z: 1}, 500).start();
             });
         }
-
-        let currentDetailId = null;
 
         function openDetailPanel(id) {
             const data = resumeData[id];
             if(!data) return;
 
             const panel = document.getElementById('content-panel');
-            const titleEl = document.getElementById('panel-title');
-            const bodyEl = document.getElementById('panel-body');
-            const closeBtn = document.getElementById('close-btn');
+            document.getElementById('panel-title').innerHTML = data.title;
+            document.getElementById('panel-body').innerHTML = data.content;
+            document.getElementById('close-btn').classList.remove('hidden');
 
-            // Populate content
-            titleEl.innerHTML = data.title;
-            bodyEl.innerHTML = data.content;
-
-            // Show Panel
             panel.classList.remove('hidden');
-            // Small delay to allow display block to apply before transition
             setTimeout(() => {
                 panel.classList.remove('opacity-0', 'translate-x-10');
                 panel.classList.add('opacity-100', 'translate-x-0');
             }, 50);
-
-            // Show Close Button
-            closeBtn.classList.remove('hidden');
         }
 
         document.getElementById('close-btn').addEventListener('click', resetView);
