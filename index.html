@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kavyashree - 3D Interactive Portfolio</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Tween.js for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        
+        /* UI Overlay Layer */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+        
+        /* Interactive Elements (allow pointer events) */
+        .interactive { pointer-events: auto; }
+        
+        /* Glassmorphism Card */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Loading Screen */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 50; display: flex; justify-content: center; align-items: center;
+            color: #0ea5e9; font-size: 1.5rem; letter-spacing: 2px;
+            transition: opacity 1s ease;
+        }
+
+        /* Custom Scrollbar */
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(14, 165, 233, 0.5); border-radius: 3px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(14, 165, 233, 0.8); }
+
+        /* Animations */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(14, 165, 233, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); }
+        }
+        
+        .nav-btn:hover { text-shadow: 0 0 10px #0ea5e9; transform: scale(1.1); }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loader">INITIALIZING SYSTEM...</div>
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer" class="flex flex-col justify-between p-6">
+        
+        <!-- Header -->
+        <div class="flex justify-between items-start">
+            <div class="text-white">
+                <h1 class="text-4xl font-bold tracking-wider text-sky-400">KAVYASHREE</h1>
+                <p class="text-sm text-slate-400 tracking-widest mt-1">COMPUTER SCIENCE ENGINEER</p>
+            </div>
+            
+            <!-- Close Detail View Button (Hidden initially) -->
+            <button id="close-btn" class="interactive hidden bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/50 rounded-full w-12 h-12 flex items-center justify-center transition-all duration-300">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Instructions (Hidden when detailed view is open) -->
+        <div id="instructions" class="absolute bottom-10 left-1/2 transform -translate-x-1/2 text-center text-slate-500 text-sm animate-pulse select-none">
+            <p>CLICK A NODE TO EXPLORE</p>
+            <p class="text-xs opacity-50">DRAG TO ROTATE | SCROLL TO ZOOM</p>
+        </div>
+
+        <!-- Content Panel (Hidden initially) -->
+        <div id="content-panel" class="interactive hidden absolute top-1/2 right-4 md:right-10 transform -translate-y-1/2 w-[90%] md:w-[450px] max-h-[80vh] glass-panel rounded-xl text-white p-6 overflow-hidden flex flex-col transition-all duration-500 opacity-0 translate-x-10">
+            <h2 id="panel-title" class="text-2xl font-bold text-sky-400 mb-4 border-b border-white/10 pb-2"></h2>
+            <div id="panel-body" class="overflow-y-auto custom-scroll pr-2 space-y-4 text-sm text-slate-300 leading-relaxed">
+                <!-- Content injected via JS -->
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- RESUME DATA ---
+        const resumeData = {
+            "profile": {
+                title: "Career Objective",
+                content: `
+                    <p class="mb-4">Dynamic Computer Science graduate (2024) eager to kickstart a career in the tech industry. Seeking an entry-level position where I can apply my coding skills, problem-solving abilities, and passion for innovation.</p>
+                    <div class="grid grid-cols-2 gap-4 mt-4">
+                        <div class="bg-white/5 p-3 rounded">
+                            <i class="fa-solid fa-location-dot text-sky-400 mb-2"></i>
+                            <div class="text-xs text-slate-400">Location</div>
+                            <div>Bhalki, Karnataka</div>
+                        </div>
+                        <div class="bg-white/5 p-3 rounded">
+                            <i class="fa-solid fa-graduation-cap text-sky-400 mb-2"></i>
+                            <div class="text-xs text-slate-400">Education</div>
+                            <div>B.E. (CSE)</div>
+                        </div>
+                    </div>
+                `
+            },
+            "education": {
+                title: "Education History",
+                content: `
+                    <div class="space-y-6">
+                        <div class="relative pl-6 border-l-2 border-sky-500/30">
+                            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-sky-500"></div>
+                            <h3 class="text-white font-bold">Bachelor of Engineering (CSE)</h3>
+                            <p class="text-sky-300 text-xs">2020 - 2024</p>
+                            <p class="text-slate-400 text-sm mt-1">Bheemanna Khandre Institute of Technology, Bhalki</p>
+                            <div class="inline-block mt-2 px-2 py-1 bg-sky-500/20 rounded text-sky-300 text-xs font-bold">CGPA: 8.45</div>
+                        </div>
+                        
+                        <div class="relative pl-6 border-l-2 border-sky-500/30">
+                            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-700"></div>
+                            <h3 class="text-white font-bold">Pre-University Course (Science)</h3>
+                            <p class="text-sky-300 text-xs">2018 - 2020</p>
+                            <p class="text-slate-400 text-sm mt-1">Diamond PU Science College, Bhalki</p>
+                            <div class="inline-block mt-2 px-2 py-1 bg-white/10 rounded text-slate-300 text-xs">88%</div>
+                        </div>
+
+                        <div class="relative pl-6 border-l-2 border-sky-500/30">
+                            <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-700"></div>
+                            <h3 class="text-white font-bold">SSLC</h3>
+                            <p class="text-slate-400 text-sm mt-1">Sri Kumar Swamiji High School, Bhalki</p>
+                            <div class="inline-block mt-2 px-2 py-1 bg-white/10 rounded text-slate-300 text-xs">76.64%</div>
+                        </div>
+                    </div>
+                `
+            },
+            "skills": {
+                title: "Technical & Soft Skills",
+                content: `
+                    <h4 class="text-sky-400 font-bold mb-2 uppercase text-xs tracking-wider">Programming & Web</h4>
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">Java (OOP, Multithreading)</span>
+                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">SQL (Joins, Subqueries)</span>
+                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">HTML5 / CSS3</span>
+                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">JavaScript</span>
+                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">Bootstrap</span>
+                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">Linux</span>
+                        <span class="px-3 py-1 bg-sky-600/20 border border-sky-500/30 rounded-full text-xs text-sky-300">Git</span>
+                    </div>
+
+                    <h4 class="text-purple-400 font-bold mb-2 uppercase text-xs tracking-wider">Soft Skills</h4>
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-300">Adaptability</span>
+                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-300">Leadership</span>
+                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-300">Communication</span>
+                        <span class="px-3 py-1 bg-purple-600/20 border border-purple-500/30 rounded-full text-xs text-purple-300">Teamwork</span>
+                    </div>
+                    
+                    <h4 class="text-green-400 font-bold mb-2 uppercase text-xs tracking-wider">Certifications</h4>
+                    <ul class="list-disc list-inside text-xs text-slate-300">
+                        <li>Java Full Stack Development - JSpiders, Bangalore</li>
+                    </ul>
+                `
+            },
+            "experience": {
+                title: "Work Experience",
+                content: `
+                    <div class="bg-white/5 p-4 rounded-lg border border-white/10">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-bold text-lg text-white">Data Science Intern</h3>
+                            <span class="text-xs text-slate-400 bg-white/10 px-2 py-1 rounded">Aug - Sept 2023</span>
+                        </div>
+                        <p class="text-sky-400 text-sm mb-3">ZE Learning Lab, Bangalore</p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-2">
+                            <li>Worked in the Data Science domain.</li>
+                            <li>Developed a <strong>Laptop Price Prediction</strong> model using Jupyter Notebook.</li>
+                            <li>Gained hands-on experience with Python libraries for data analysis.</li>
+                        </ul>
+                    </div>
+                `
+            },
+            "projects": {
+                title: "Project Portfolio",
+                content: `
+                    <div class="space-y-6">
+                        <div class="group">
+                            <h3 class="text-sky-300 font-bold flex items-center gap-2">
+                                <i class="fa-solid fa-utensils"></i> Food Recognition & Calorie Estimation
+                            </h3>
+                            <p class="text-xs text-slate-500 mb-2">Main Project (Machine Learning)</p>
+                            <p class="text-sm text-slate-300">Developed a web-app that recognizes food items from images and estimates their calorie content using ML algorithms.</p>
+                        </div>
+
+                        <div class="w-full h-px bg-white/10"></div>
+
+                        <div class="group">
+                            <h3 class="text-sky-300 font-bold flex items-center gap-2">
+                                <i class="fa-solid fa-shop"></i> Restaurant Management System
+                            </h3>
+                            <p class="text-xs text-slate-500 mb-2">Mini Project (Java & PHP)</p>
+                            <p class="text-sm text-slate-300">Designed and developed both front-end and back-end for a management system to handle restaurant operations.</p>
+                        </div>
+
+                        <div class="w-full h-px bg-white/10"></div>
+
+                        <div class="group">
+                            <h3 class="text-sky-300 font-bold flex items-center gap-2">
+                                <i class="fa-solid fa-water"></i> 3D Water Fountain
+                            </h3>
+                            <p class="text-xs text-slate-500 mb-2">Computer Graphics (Code Blocks)</p>
+                            <p class="text-sm text-slate-300">Created a 3D simulation of a water fountain using computer graphics principles.</p>
+                        </div>
+                    </div>
+                `
+            },
+            "contact": {
+                title: "Contact & Languages",
+                content: `
+                    <div class="space-y-4">
+                        <a href="mailto:kumbarkavyashree@gmail.com" class="flex items-center gap-4 p-3 bg-white/5 hover:bg-white/10 rounded transition-colors group">
+                            <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-envelope"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-400">Email</div>
+                                <div class="text-sm text-white">kumbarkavyashree@gmail.com</div>
+                            </div>
+                        </a>
+
+                        <a href="tel:+917019044357" class="flex items-center gap-4 p-3 bg-white/5 hover:bg-white/10 rounded transition-colors group">
+                            <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-phone"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-400">Phone</div>
+                                <div class="text-sm text-white">+91 7019044357</div>
+                            </div>
+                        </a>
+
+                        <a href="https://www.linkedin.com/in/kavya-shree-s-k-045351230/" target="_blank" class="flex items-center gap-4 p-3 bg-white/5 hover:bg-white/10 rounded transition-colors group">
+                            <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                                <i class="fa-brands fa-linkedin-in"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs text-slate-400">LinkedIn</div>
+                                <div class="text-sm text-white">View Profile</div>
+                            </div>
+                        </a>
+
+                        <div class="mt-6 pt-4 border-t border-white/10">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Languages</h4>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="text-sm text-slate-300"><i class="fa-solid fa-check text-green-500 mr-2"></i>English</div>
+                                <div class="text-sm text-slate-300"><i class="fa-solid fa-check text-green-500 mr-2"></i>Kannada</div>
+                                <div class="text-sm text-slate-300"><i class="fa-solid fa-check text-green-500 mr-2"></i>Hindi</div>
+                                <div class="text-sm text-slate-300"><i class="fa-solid fa-check text-green-500 mr-2"></i>Marathi</div>
+                            </div>
+                        </div>
+                    </div>
+                `
+            }
+        };
+
+        // --- THREE.JS SETUP ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050505, 0.002);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 20);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // --- LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0x0ea5e9, 2, 50);
+        pointLight.position.set(0, 10, 0);
+        scene.add(pointLight);
+
+        // --- STARS BACKGROUND ---
+        const starsGeometry = new THREE.BufferGeometry();
+        const starsCount = 2000;
+        const posArray = new Float32Array(starsCount * 3);
+
+        for(let i = 0; i < starsCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 100;
+        }
+
+        starsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const starsMaterial = new THREE.PointsMaterial({
+            size: 0.15,
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.8
+        });
+        const starField = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(starField);
+
+        // --- NODES SETUP ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const interactables = []; // Objects that can be clicked
+        const nodesGroup = new THREE.Group();
+        scene.add(nodesGroup);
+
+        // Define Nodes structure
+        const nodesConfig = [
+            { id: 'profile', label: 'About Me', color: 0x0ea5e9, size: 2, pos: { x: 0, y: 0, z: 0 }, icon: 'user' },
+            { id: 'education', label: 'Education', color: 0xf59e0b, size: 1.2, pos: { x: -6, y: 2, z: 0 }, icon: 'graduation-cap' },
+            { id: 'skills', label: 'Skills', color: 0xa855f7, size: 1.2, pos: { x: 6, y: 2, z: 0 }, icon: 'code' },
+            { id: 'experience', label: 'Work Exp', color: 0x10b981, size: 1.2, pos: { x: -4, y: -4, z: 2 }, icon: 'briefcase' },
+            { id: 'projects', label: 'Projects', color: 0xf43f5e, size: 1.2, pos: { x: 4, y: -4, z: 2 }, icon: 'rocket' },
+            { id: 'contact', label: 'Contact', color: 0xffffff, size: 1, pos: { x: 0, y: 5, z: -2 }, icon: 'envelope' }
+        ];
+
+        // Create Nodes
+        nodesConfig.forEach(node => {
+            // Geometry
+            let geometry;
+            if(node.id === 'profile') {
+                geometry = new THREE.IcosahedronGeometry(node.size, 1);
+            } else {
+                geometry = new THREE.SphereGeometry(node.size, 32, 32);
+            }
+
+            // Material
+            const material = new THREE.MeshPhongMaterial({
+                color: node.color,
+                emissive: node.color,
+                emissiveIntensity: 0.4,
+                shininess: 100,
+                flatShading: node.id === 'profile'
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(node.pos.x, node.pos.y, node.pos.z);
+            mesh.userData = { id: node.id, originalPos: node.pos, originalColor: node.color };
+            
+            // Add visible ring/orbit for style
+            const ringGeo = new THREE.RingGeometry(node.size + 0.2, node.size + 0.3, 32);
+            const ringMat = new THREE.MeshBasicMaterial({ color: node.color, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2; // Lie flat initially
+            mesh.add(ring);
+            
+            // Random floating animation data
+            mesh.userData.floatOffset = Math.random() * 100;
+            mesh.userData.floatSpeed = 0.01 + Math.random() * 0.02;
+
+            nodesGroup.add(mesh);
+            interactables.push(mesh);
+
+            // Connect lines to center (except center itself)
+            if(node.id !== 'profile') {
+                const points = [];
+                points.push(new THREE.Vector3(0, 0, 0)); // Center
+                points.push(new THREE.Vector3(node.pos.x, node.pos.y, node.pos.z));
+                const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 });
+                const line = new THREE.Line(lineGeo, lineMat);
+                nodesGroup.add(line);
+            }
+        });
+
+        // --- ANIMATION LOOP ---
+        let isFocused = false;
+        let focusedNodePosition = new THREE.Vector3();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            TWEEN.update();
+
+            // Starfield rotation
+            starField.rotation.y += 0.0005;
+
+            // Float nodes
+            nodesGroup.children.forEach(child => {
+                if (child.isMesh && child.userData.floatSpeed) {
+                    child.position.y = child.userData.originalPos.y + Math.sin(Date.now() * 0.001 + child.userData.floatOffset) * 0.5;
+                    child.rotation.y += 0.005;
+                    child.rotation.z += 0.002;
+                    
+                    // Rotate rings nicely
+                    if(child.children.length > 0) {
+                        child.children[0].rotation.x = Math.PI/2 + Math.sin(Date.now() * 0.002) * 0.5;
+                        child.children[0].rotation.y = Math.cos(Date.now() * 0.002) * 0.5;
+                    }
+                }
+            });
+
+            // Idle camera movement
+            if(!isFocused) {
+                camera.position.x += (mouse.x * 2 - camera.position.x) * 0.05;
+                camera.position.y += (mouse.y * 2 + 5 - camera.position.y) * 0.05;
+                camera.lookAt(0, 0, 0);
+            } else {
+                // Keep looking at target
+                // camera.lookAt(focusedNodePosition); // This creates jitter with Tween, better to handle in Tween onUpdate
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // --- EVENTS ---
+        
+        // Remove Loader
+        window.addEventListener('load', () => {
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            setTimeout(() => loader.remove(), 1000);
+        });
+
+        // Mouse Move for Parallax
+        document.addEventListener('mousemove', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Click Interaction
+        document.addEventListener('click', onMouseClick);
+
+        function onMouseClick(event) {
+            if(event.target.closest('.interactive')) return; // Ignore UI clicks
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(interactables);
+
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                focusNode(object);
+            } else {
+                // Clicking background doesn't reset automatically to avoid accidental closing
+            }
+        }
+
+        // --- UI LOGIC ---
+
+        function focusNode(object) {
+            if(isFocused && object.userData.id === currentDetailId) return;
+            
+            isFocused = true;
+            currentDetailId = object.userData.id;
+            focusedNodePosition.copy(object.position);
+
+            // Hide instructions
+            document.getElementById('instructions').classList.add('opacity-0');
+
+            // 1. Move Camera
+            // Calculate a position slightly in front of the object
+            const offset = new THREE.Vector3(0, 0, 8); // Distance from object
+            // If object is on the side, adjust angle
+            const targetPos = object.position.clone().add(offset);
+            
+            // Adjust specific camera angles based on node ID for better composition
+            if(object.userData.id === 'education') targetPos.set(object.position.x + 5, object.position.y, object.position.z + 8);
+            if(object.userData.id === 'skills') targetPos.set(object.position.x - 5, object.position.y, object.position.z + 8);
+
+            new TWEEN.Tween(camera.position)
+                .to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, 1500)
+                .easing(TWEEN.Easing.Cubic.Out)
+                .onUpdate(() => {
+                    camera.lookAt(object.position);
+                })
+                .start();
+
+            // 2. Open UI Panel
+            openDetailPanel(object.userData.id);
+            
+            // 3. Highlight Node (Dim others)
+            interactables.forEach(mesh => {
+                if(mesh === object) {
+                    mesh.material.emissiveIntensity = 1;
+                    mesh.scale.setScalar(1.2);
+                } else {
+                    mesh.material.emissiveIntensity = 0.1;
+                    mesh.scale.setScalar(1);
+                }
+            });
+        }
+
+        function resetView() {
+            isFocused = false;
+            currentDetailId = null;
+
+            // Reset Camera
+            new TWEEN.Tween(camera.position)
+                .to({ x: 0, y: 5, z: 20 }, 1500)
+                .easing(TWEEN.Easing.Cubic.Out)
+                .onUpdate(() => {
+                    camera.lookAt(0, 0, 0);
+                })
+                .start();
+
+            // Hide Panel
+            const panel = document.getElementById('content-panel');
+            panel.classList.remove('opacity-100', 'translate-x-0');
+            panel.classList.add('opacity-0', 'translate-x-10');
+            setTimeout(() => panel.classList.add('hidden'), 500);
+
+            // Hide Close Button
+            const closeBtn = document.getElementById('close-btn');
+            closeBtn.classList.add('hidden');
+
+            // Show instructions
+            document.getElementById('instructions').classList.remove('opacity-0');
+
+            // Reset Nodes
+            interactables.forEach(mesh => {
+                mesh.material.emissiveIntensity = 0.4;
+                new TWEEN.Tween(mesh.scale)
+                    .to({ x: 1, y: 1, z: 1 }, 500)
+                    .start();
+            });
+        }
+
+        let currentDetailId = null;
+
+        function openDetailPanel(id) {
+            const data = resumeData[id];
+            if(!data) return;
+
+            const panel = document.getElementById('content-panel');
+            const titleEl = document.getElementById('panel-title');
+            const bodyEl = document.getElementById('panel-body');
+            const closeBtn = document.getElementById('close-btn');
+
+            // Populate content
+            titleEl.innerHTML = data.title;
+            bodyEl.innerHTML = data.content;
+
+            // Show Panel
+            panel.classList.remove('hidden');
+            // Small delay to allow display block to apply before transition
+            setTimeout(() => {
+                panel.classList.remove('opacity-0', 'translate-x-10');
+                panel.classList.add('opacity-100', 'translate-x-0');
+            }, 50);
+
+            // Show Close Button
+            closeBtn.classList.remove('hidden');
+        }
+
+        document.getElementById('close-btn').addEventListener('click', resetView);
+
+    </script>
+</body>
+</html>
